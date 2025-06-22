@@ -1,0 +1,84 @@
+name: CI/CD Pipeline for Laravel & FastAPI Recommender
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # --- Laravel 應用程式的 CI 流程 ---
+  laravel-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: gd, mbstring, pdo_mysql, redis
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        working-directory: ./laravel-app
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Copy .env.example
+        working-directory: ./laravel-app
+        run: cp .env.example .env
+
+      - name: Generate Laravel application key
+        working-directory: ./laravel-app
+        run: php artisan key:generate
+
+      - name: Create SQLite Database for Tests
+        working-directory: ./laravel-app
+        run: |
+          touch database/database.sqlite
+          # 更改 .env 設置，使用 SQLite 進行測試
+          sed -i 's/DB_CONNECTION=mysql/DB_CONNECTION=sqlite/' .env
+          sed -i '/DB_HOST/d' .env
+          sed -i '/DB_PORT/d' .env
+          sed -i '/DB_DATABASE/d' .env
+          sed -i '/DB_USERNAME/d' .env
+          sed -i '/DB_PASSWORD/d' .env
+          echo "DB_DATABASE=./database/database.sqlite" >> .env
+
+
+      - name: Run Laravel Migrations
+        working-directory: ./laravel-app
+        run: php artisan migrate --force --no-interaction
+
+      - name: Run Laravel PHPUnit Tests
+        working-directory: ./laravel-app
+        run: vendor/bin/phpunit --testdox
+
+      - name: Check Laravel Route List
+        working-directory: ./laravel-app
+        run: php artisan route:list
+
+  # --- FastAPI 微服務的 CI 流程 ---
+  fastapi-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        working-directory: ./recommender-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run FastAPI Pytest Tests
+        working-directory: ./recommender-service
+        run: pytest
