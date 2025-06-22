@@ -19,13 +19,13 @@
 ```mermaid
 graph TD
     A[用戶瀏覽器] -->|HTTP/HTTPS| B(Laravel 應用)
-    B -->|請求推薦 (user_id)| C(Redis 快取)
-    C -->|快取命中?| B
+    B -->|請求推薦 user_id| C(Redis 快取)
+    C -->|快取是否命中| B
     C -->|快取未命中| D(FastAPI 推薦服務)
-    D -->|唯讀查詢| E(MySQL 資料庫<br/>(Laravel 主資料庫))
+    D -->|唯讀查詢| E(MySQL 資料庫<br>Laravel 主資料庫)
     E -->|用戶/商品/互動數據| D
     D -->|計算推薦結果| F(Redis 快取)
-    F -->|快取結果 (TTL)| C
+    F -->|快取結果 TTL| C
     C -->|返回商品 ID| B
     B -->|查詢商品詳情| E
     B -->|顯示推薦商品| A
